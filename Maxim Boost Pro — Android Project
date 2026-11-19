@@ -1,0 +1,40 @@
+name: Build Maxim Boost Pro APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract project ZIP
+        shell: bash
+        run: |
+          set -e
+          ZIP_FILE=$(find . -maxdepth 2 -type f -name '*.zip' | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then echo "Upload the project ZIP first"; exit 1; fi
+          mkdir -p extracted
+          unzip -q "$ZIP_FILE" -d extracted
+          PROJECT_DIR=$(find extracted -type f -name 'settings.gradle' -o -name 'settings.gradle.kts' | head -n 1 | xargs dirname)
+          if [ -z "$PROJECT_DIR" ] || [ ! -d "$PROJECT_DIR/app" ]; then
+            echo "ZIP does not contain Android project (settings.gradle and app folder)"
+            find extracted -maxdepth 4 -type f
+            exit 1
+          fi
+          cp -a "$PROJECT_DIR"/. .
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install SDK
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build APK
+        run: gradle assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Maxim-Boost-Pro-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
